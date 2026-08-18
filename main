@@ -1,0 +1,613 @@
+2 unmodified lines
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON 树状查看器</title>
+<title>JSON 树状图</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    margin: 0;
+    background: #f5f6f8;
+    color: #24292f;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+  .container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+  h1 { font-size: 20px; margin: 0 0 16px; }
+  .panels { display: flex; gap: 16px; align-items: stretch; }
+  header { padding: 12px 20px; }
+  header h1 { font-size: 18px; margin: 0; }
+  .main { flex: 1; display: flex; gap: 12px; padding: 0 20px 20px; min-height: 0; }
+  .panel {
+    flex: 1;
+    background: #fff;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .panel h2 { font-size: 14px; margin: 0 0 8px; color: #57606a; }
+  .left { width: 320px; flex: none; padding: 12px; }
+  .right { flex: 1; overflow: hidden; position: relative; }
+  .panel h2 { font-size: 13px; margin: 0 0 8px; color: #57606a; }
+  .toolbar { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 420px;
+    resize: vertical;
+    resize: none;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 13px;
+    font-size: 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 10px;
+  }
+  .toolbar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+  button {
+    background: #f6f8fa;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 13px;
+    cursor: pointer;
+    background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px;
+    padding: 5px 10px; font-size: 12px; cursor: pointer;
+  }
+  button:hover { background: #eef1f4; }
+  button.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+  button.primary:hover { background: #1a5fd0; }
+  #search {
+    flex: 1;
+    min-width: 120px;
+    padding: 6px 10px;
+    font-size: 13px;
+    border: 1px solid #d0d7de;
+    border-radius: 6px;
+  input[type=text] {
+    padding: 5px 9px; font-size: 12px; border: 1px solid #d0d7de; border-radius: 6px;
+  }
+  .tree {
+    flex: 1;
+    overflow: auto;
+  /* 右侧图形工具条浮层 */
+  .graph-toolbar {
+    position: absolute; top: 10px; left: 10px; z-index: 10;
+    display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+    background: rgba(255,255,255,0.9); padding: 6px 8px;
+    border: 1px solid #d0d7de; border-radius: 8px;
+  }
+  #search { width: 150px; }
+  svg { width: 100%; height: 100%; display: block; cursor: grab; background:
+        radial-gradient(#e3e6ea 1px, transparent 1px) 0 0 / 20px 20px; }
+  svg.panning { cursor: grabbing; }
+  .edge { fill: none; stroke: #b9c0c8; stroke-width: 1.5px; }
+  .node-fo { overflow: visible; }
+  .box {
+    display: flex; align-items: center; gap: 4px;
+    height: 26px; padding: 0 8px;
+    border: 1px solid #cfd6dd; border-radius: 6px;
+    background: #fff; font-size: 12px; line-height: 1;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    min-height: 420px;
+    white-space: nowrap; cursor: move; user-select: none;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+  }
+  .node.root { padding-left: 0; }
+  /* 树形分支连接线 */
+  .children > .node {
+    position: relative;
+    padding-left: 18px;
+  }
+  /* 横向连接线（指向每个子节点） */
+  .children > .node::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 11px;
+    width: 13px;
+    border-top: 1px solid #c6ccd3;
+  }
+  /* 纵向连接线（连接同级兄弟节点） */
+  .children > .node::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    border-left: 1px solid #c6ccd3;
+  }
+  /* 最后一个子节点的纵线只画到连接点，形成 └ 形状 */
+  .children > .node:last-child::after {
+    bottom: auto;
+    height: 11px;
+  }
+  .row { display: flex; align-items: flex-start; white-space: pre; cursor: default; }
+  .row.collapsible { cursor: pointer; }
+  .box.container { background: #eef4ff; border-color: #bcd0f5; }
+  .box.match { background: #fff3b0; border-color: #e3c000; }
+  .toggle {
+    display: inline-block;
+    width: 14px;
+    text-align: center;
+    color: #57606a;
+    user-select: none;
+    display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center;
+    color: #57606a; cursor: pointer; border-radius: 3px; flex: none;
+  }
+  .key { color: #953800; }
+  .colon { color: #57606a; }
+  .val-string { color: #0a3069; }
+  .val-number { color: #0550ae; }
+  .val-boolean { color: #8250df; }
+  .val-null { color: #6e7781; }
+  .bracket { color: #57606a; }
+  .count { color: #6e7781; font-style: italic; margin-left: 6px; }
+  .hidden { display: none; }
+  .highlight { background: #fff3b0; border-radius: 2px; }
+  .error { color: #cf222e; padding: 10px; }
+  .hint { color: #6e7781; font-size: 12px; margin-top: 6px; }
+  .toggle:hover { background: #d5dbe2; }
+  .toggle.leaf { visibility: hidden; }
+  .k { color: #953800; }
+  .v-string { color: #0a3069; }
+  .v-number { color: #0550ae; }
+  .v-boolean { color: #8250df; }
+  .v-null { color: #6e7781; }
+  .count { color: #6e7781; }
+  .lbl { overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
+  .hint { position: absolute; bottom: 10px; right: 14px; color: #8b949e; font-size: 11px; }
+  .error { position: absolute; top: 60px; left: 12px; color: #cf222e; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>JSON 树状查看器</h1>
+  <div class="panels">
+    <div class="panel">
+      <h2>输入 JSON</h2>
+      <div class="toolbar">
+        <button class="primary" id="parseBtn">解析</button>
+        <button id="sampleBtn">示例</button>
+        <button id="clearBtn">清空</button>
+      </div>
+      <textarea id="input" placeholder='在此粘贴 JSON，例如 {"name":"张三","age":30}'></textarea>
+<header><h1>JSON 树状图</h1></header>
+<div class="main">
+  <div class="panel left">
+    <h2>输入 JSON</h2>
+    <div class="toolbar">
+      <button class="primary" id="parseBtn">解析</button>
+      <button id="sampleBtn">示例</button>
+      <button id="clearBtn">清空</button>
+    </div>
+    <div class="panel">
+      <h2>树状视图</h2>
+      <div class="toolbar">
+        <input id="search" type="text" placeholder="搜索 key 或 value...">
+        <button id="expandBtn">全部展开</button>
+        <button id="collapseBtn">全部收起</button>
+      </div>
+      <div class="tree" id="tree"></div>
+      <div class="hint">点击带 ▶ 的行可展开/收起。搜索会高亮匹配并自动展开所在节点。</div>
+    <textarea id="input" placeholder='粘贴 JSON…'></textarea>
+  </div>
+  <div class="panel right">
+    <div class="graph-toolbar">
+      <input id="search" type="text" placeholder="搜索 key / value…">
+      <button id="expandBtn">全部展开</button>
+      <button id="collapseBtn">全部收起</button>
+      <button id="resetBtn">重置视图</button>
+    </div>
+    <svg id="svg">
+      <g id="viewport">
+        <g id="edges"></g>
+        <g id="nodes"></g>
+      </g>
+    </svg>
+    <div class="error" id="error"></div>
+    <div class="hint">拖空白处平移 · 滚轮缩放 · 拖节点移动 · 点 ▶/▼ 展开收起</div>
+  </div>
+</div>
+ 
+<script>
+(function () {
+  const SVGNS = "http://www.w3.org/2000/svg";
+  const svg = document.getElementById('svg');
+  const viewport = document.getElementById('viewport');
+  const gEdges = document.getElementById('edges');
+  const gNodes = document.getElementById('nodes');
+  const input = document.getElementById('input');
+  const tree = document.getElementById('tree');
+  const search = document.getElementById('search');
+  const errorBox = document.getElementById('error');
+  const W = 200, H = 26, X_GAP = 250, Y_GAP = 40;
+  let rootNode = null;
+  let visibleNodes = [];
+  let edges = [];           // {p, c, el}
+  let view = { tx: 40, ty: 40, s: 1 };
+  let idc = 0;
+  const SAMPLE = {
+    name: "示例项目",
+    version: "1.0.0",
+    active: true,
+    name: "示例项目", version: "1.0.0", active: true,
+    tags: ["json", "tree", "viewer"],
+    owner: { id: 1001, name: "张三", email: "zhangsan@example.com" },
+    items: [
+3 unmodified lines
+    meta: null
+  };
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  // ---------- 数据模型 ----------
+  function build(key, value, depth, parent) {
+    const type = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
+    const node = { id: idc++, key, value, type, parent, children: [], collapsed: false, x: 0, y: 0 };
+    if (type === 'object') node.children = Object.keys(value).map(k => build(k, value[k], depth + 1, node));
+    else if (type === 'array') node.children = value.map((v, i) => build(i, v, depth + 1, node));
+    if ((type === 'object' || type === 'array') && depth >= 2) node.collapsed = true; // 深层默认收起
+    return node;
+  }
+  function isContainer(n) { return n.type === 'object' || n.type === 'array'; }
+  // 构建树 DOM。value 可以是任意 JSON 值。
+  function buildNode(key, value, isRoot) {
+    const node = document.createElement('div');
+    node.className = 'node' + (isRoot ? ' root' : '');
+  // ---------- 布局（根在左，向右展开）----------
+  function layout() {
+    visibleNodes = [];
+    edges = [];
+    let leaf = 0;
+    function assign(node, depth) {
+      node.x = depth * X_GAP;
+      visibleNodes.push(node);
+      const kids = node.collapsed ? [] : node.children;
+      if (kids.length === 0) {
+        node.y = leaf * Y_GAP;
+        leaf++;
+      } else {
+        kids.forEach(k => { edges.push({ p: node, c: k }); assign(k, depth + 1); });
+        node.y = (kids[0].y + kids[kids.length - 1].y) / 2;
+      }
+    }
+    if (rootNode) assign(rootNode, 0);
+  }
+    const type = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
+    const isContainer = type === 'object' || type === 'array';
+  // ---------- 标签 ----------
+  function labelHTML(node) {
+    const key = node.key === null ? 'root' : node.key;
+    if (isContainer(node)) {
+      const b = node.type === 'array' ? ['[', ']'] : ['{', '}'];
+      return `<span class="k">${esc(key)}</span> <span class="count">${b[0]}${node.children.length}${b[1]}</span>`;
+    }
+    let v;
+    if (node.type === 'string') v = `<span class="v-string">"${esc(node.value)}"</span>`;
+    else if (node.type === 'number') v = `<span class="v-number">${esc(node.value)}</span>`;
+    else if (node.type === 'boolean') v = `<span class="v-boolean">${node.value}</span>`;
+    else v = `<span class="v-null">null</span>`;
+    const kp = node.key === null ? '' : `<span class="k">${esc(key)}</span>: `;
+    return kp + v;
+  }
+  function labelText(node) {
+    const key = node.key === null ? 'root' : String(node.key);
+    if (isContainer(node)) return key;
+    return key + ' ' + (node.type === 'string' ? node.value : String(node.value));
+  }
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+    const row = document.createElement('div');
+    row.className = 'row';
+  // ---------- 渲染 ----------
+  function render() {
+    layout();
+    gNodes.innerHTML = '';
+    gEdges.innerHTML = '';
+    const term = search.value.trim().toLowerCase();
+    const toggle = document.createElement('span');
+    toggle.className = 'toggle';
+    edges.forEach(e => {
+      const path = document.createElementNS(SVGNS, 'path');
+      path.setAttribute('class', 'edge');
+      e.el = path;
+      gEdges.appendChild(path);
+    });
+    row.appendChild(toggle);
+    visibleNodes.forEach(node => {
+      const g = document.createElementNS(SVGNS, 'g');
+      const fo = document.createElementNS(SVGNS, 'foreignObject');
+      fo.setAttribute('class', 'node-fo');
+      fo.setAttribute('width', W);
+      fo.setAttribute('height', H);
+    // key 部分
+    if (key !== null) {
+      const keySpan = document.createElement('span');
+      keySpan.className = 'key';
+      keySpan.textContent = '"' + key + '"';
+      row.appendChild(keySpan);
+      const colon = document.createElement('span');
+      colon.className = 'colon';
+      colon.textContent = ': ';
+      row.appendChild(colon);
+    }
+      const box = document.createElement('div');
+      box.className = 'box' + (isContainer(node) ? ' container' : '');
+      if (term && labelText(node).toLowerCase().includes(term)) box.classList.add('match');
+    if (isContainer) {
+      const entries = type === 'array'
+        ? value.map((v, i) => [i, v])
+        : Object.keys(value).map(k => [k, value[k]]);
+      const toggle = document.createElement('span');
+      toggle.className = 'toggle' + (isContainer(node) && node.children.length ? '' : ' leaf');
+      toggle.textContent = node.collapsed ? '▶' : '▼';
+      toggle.addEventListener('mousedown', ev => ev.stopPropagation());
+      toggle.addEventListener('click', ev => {
+        ev.stopPropagation();
+        node.collapsed = !node.collapsed;
+        render();
+      });
+      row.classList.add('collapsible');
+      toggle.textContent = '▶';
+      const lbl = document.createElement('span');
+      lbl.className = 'lbl';
+      lbl.innerHTML = labelHTML(node);
+      const open = document.createElement('span');
+      open.className = 'bracket';
+      open.textContent = type === 'array' ? '[' : '{';
+      row.appendChild(open);
+      box.appendChild(toggle);
+      box.appendChild(lbl);
+      fo.appendChild(box);
+      g.appendChild(fo);
+      gNodes.appendChild(g);
+      const count = document.createElement('span');
+      count.className = 'count';
+      count.textContent = entries.length + (type === 'array' ? ' 项' : ' 字段');
+      row.appendChild(count);
+      node._g = g;
+      node._box = box;
+      // 拖动节点
+      box.addEventListener('mousedown', ev => startNodeDrag(ev, node));
+    });
+      const children = document.createElement('div');
+      children.className = 'children';
+    applyPositions();
+    applyView();
+  }
+      entries.forEach(([k, v]) => children.appendChild(buildNode(k, v, false)));
+  function applyPositions() {
+    visibleNodes.forEach(n => n._g.setAttribute('transform', `translate(${n.x},${n.y})`));
+    edges.forEach(e => {
+      const x1 = e.p.x + W, y1 = e.p.y + H / 2;
+      const x2 = e.c.x, y2 = e.c.y + H / 2;
+      const mx = (x1 + x2) / 2;
+      e.el.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
+    });
+  }
+      const closeRow = document.createElement('div');
+      closeRow.className = 'row';
+      const pad = document.createElement('span');
+      pad.className = 'toggle';
+      closeRow.appendChild(pad);
+      const close = document.createElement('span');
+      close.className = 'bracket';
+      close.textContent = type === 'array' ? ']' : '}';
+      closeRow.appendChild(close);
+  function applyView() {
+    viewport.setAttribute('transform', `translate(${view.tx},${view.ty}) scale(${view.s})`);
+  }
+      // 收起/展开逻辑
+      function setCollapsed(collapsed) {
+        node._collapsed = collapsed;
+        toggle.textContent = collapsed ? '▶' : '▼';
+        children.classList.toggle('hidden', collapsed);
+        closeRow.classList.toggle('hidden', collapsed);
+        count.classList.toggle('hidden', !collapsed);
+      }
+      node._setCollapsed = setCollapsed;
+      setCollapsed(true); // 默认收起
+  // ---------- 节点拖动（移动整棵子树）----------
+  let dragging = null;
+  function subtree(node) {
+    const out = [];
+    (function walk(n) { out.push(n); if (!n.collapsed) n.children.forEach(walk); })(node);
+    return out;
+  }
+  function startNodeDrag(ev, node) {
+    ev.preventDefault();
+    ev.stopPropagation();
+    dragging = { node, nodes: subtree(node).filter(n => visibleNodes.includes(n)), sx: ev.clientX, sy: ev.clientY };
+  }
+  window.addEventListener('mousemove', ev => {
+    if (dragging) {
+      const dx = (ev.clientX - dragging.sx) / view.s;
+      const dy = (ev.clientY - dragging.sy) / view.s;
+      dragging.sx = ev.clientX; dragging.sy = ev.clientY;
+      dragging.nodes.forEach(n => { n.x += dx; n.y += dy; });
+      applyPositions();
+    } else if (panning) {
+      view.tx += ev.clientX - panning.sx;
+      view.ty += ev.clientY - panning.sy;
+      panning.sx = ev.clientX; panning.sy = ev.clientY;
+      applyView();
+    }
+  });
+  window.addEventListener('mouseup', () => {
+    dragging = null;
+    if (panning) { panning = null; svg.classList.remove('panning'); }
+  });
+      row.addEventListener('click', () => setCollapsed(!node._collapsed));
+  // ---------- 画布平移 ----------
+  let panning = null;
+  svg.addEventListener('mousedown', ev => {
+    if (ev.target.closest('.box')) return; // 点在节点上交给节点拖动
+    panning = { sx: ev.clientX, sy: ev.clientY };
+    svg.classList.add('panning');
+  });
+      node.appendChild(row);
+      node.appendChild(children);
+      node.appendChild(closeRow);
+    } else {
+      toggle.textContent = ' ';
+      const valSpan = document.createElement('span');
+      if (type === 'string') {
+        valSpan.className = 'val-string';
+        valSpan.textContent = '"' + value + '"';
+      } else if (type === 'number') {
+        valSpan.className = 'val-number';
+        valSpan.textContent = value;
+      } else if (type === 'boolean') {
+        valSpan.className = 'val-boolean';
+        valSpan.textContent = value;
+      } else {
+        valSpan.className = 'val-null';
+        valSpan.textContent = 'null';
+      }
+      row.appendChild(valSpan);
+      node.appendChild(row);
+    }
+  // ---------- 缩放 ----------
+  svg.addEventListener('wheel', ev => {
+    ev.preventDefault();
+    const rect = svg.getBoundingClientRect();
+    const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+    const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const ns = Math.min(3, Math.max(0.2, view.s * factor));
+    // 以鼠标为中心缩放
+    view.tx = mx - (mx - view.tx) * (ns / view.s);
+    view.ty = my - (my - view.ty) * (ns / view.s);
+    view.s = ns;
+    applyView();
+  }, { passive: false });
+    return node;
+  // ---------- 重置 / 自适应 ----------
+  function resetView() {
+    if (!rootNode) return;
+    view.s = 1;
+    view.tx = 40;
+    view.ty = svg.clientHeight / 2 - (rootNode.y + H / 2);
+    applyView();
+  }
+  function render() {
+    const raw = input.value.trim();
+    tree.innerHTML = '';
+    if (!raw) return;
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      const err = document.createElement('div');
+      err.className = 'error';
+      err.textContent = 'JSON 解析错误: ' + e.message;
+      tree.appendChild(err);
+      return;
+    }
+    tree.appendChild(buildNode(null, data, true));
+    // 根节点默认展开
+    const root = tree.firstChild;
+    if (root && root._setCollapsed) root._setCollapsed(false);
+    applySearch();
+  }
+  function setAllCollapsed(collapsed) {
+    tree.querySelectorAll('.node').forEach(n => {
+      if (n._setCollapsed) n._setCollapsed(collapsed);
+    });
+    (function walk(n) { if (isContainer(n) && n.children.length) n.collapsed = collapsed; n.children.forEach(walk); })(rootNode);
+    if (rootNode) rootNode.collapsed = false; // 根始终展开
+    render();
+    resetView();
+  }
+  // 清除高亮，恢复原始文本
+  function clearHighlights() {
+    tree.querySelectorAll('.highlight').forEach(el => {
+      el.replaceWith(document.createTextNode(el.textContent));
+    });
+    tree.querySelectorAll('.key, .val-string, .val-number, .val-boolean, .val-null')
+      .forEach(el => el.normalize());
+  }
+  function applySearch() {
+    clearHighlights();
+  // ---------- 搜索：展开匹配节点的所有祖先 ----------
+  function doSearch() {
+    const term = search.value.trim().toLowerCase();
+    if (!term) return;
+    const targets = tree.querySelectorAll('.key, .val-string, .val-number, .val-boolean, .val-null');
+    targets.forEach(el => {
+      const text = el.textContent;
+      if (text.toLowerCase().includes(term)) {
+        // 高亮匹配片段
+        const idx = text.toLowerCase().indexOf(term);
+        el.innerHTML = escapeHtml(text.slice(0, idx))
+          + '<span class="highlight">' + escapeHtml(text.slice(idx, idx + term.length)) + '</span>'
+          + escapeHtml(text.slice(idx + term.length));
+        // 展开所有祖先容器
+        let p = el.closest('.node');
+        while (p && p !== tree) {
+          if (p._setCollapsed) p._setCollapsed(false);
+          p = p.parentElement.closest('.node');
+    if (term && rootNode) {
+      (function walk(n) {
+        if (labelText(n).toLowerCase().includes(term)) {
+          let p = n.parent;
+          while (p) { p.collapsed = false; p = p.parent; }
+        }
+      }
+    });
+        n.children.forEach(walk);
+      })(rootNode);
+    }
+    render();
+  }
+  document.getElementById('parseBtn').addEventListener('click', render);
+  // ---------- 解析入口 ----------
+  function parse() {
+    errorBox.textContent = '';
+    const raw = input.value.trim();
+    if (!raw) { rootNode = null; render(); return; }
+    let data;
+    try { data = JSON.parse(raw); }
+    catch (e) { errorBox.textContent = 'JSON 解析错误: ' + e.message; rootNode = null; render(); return; }
+    idc = 0;
+    rootNode = build(null, data, 0, null);
+    render();
+    resetView();
+  }
+  document.getElementById('parseBtn').addEventListener('click', parse);
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    input.value = ''; tree.innerHTML = ''; search.value = '';
+    input.value = ''; search.value = ''; rootNode = null; render();
+  });
+  document.getElementById('sampleBtn').addEventListener('click', () => {
+    input.value = JSON.stringify(SAMPLE, null, 2); render();
+    input.value = JSON.stringify(SAMPLE, null, 2); parse();
+  });
+  document.getElementById('expandBtn').addEventListener('click', () => setAllCollapsed(false));
+  document.getElementById('collapseBtn').addEventListener('click', () => setAllCollapsed(true));
+  search.addEventListener('input', applySearch);
+  document.getElementById('resetBtn').addEventListener('click', resetView);
+  search.addEventListener('input', doSearch);
+  // 初始加载示例
+  input.value = JSON.stringify(SAMPLE, null, 2);
+  render();
+  parse();
+})();
+</script>
+</body>
+1 unmodified lines
