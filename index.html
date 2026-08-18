@@ -3,41 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>JSON 树状查看器</title>
 <title>JSON 树状图</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%231f6feb'/><g stroke='white' stroke-width='2' fill='white'><line x1='9' y1='16' x2='22' y2='9'/><line x1='9' y1='16' x2='22' y2='23'/><circle cx='9' cy='16' r='3'/><circle cx='22' cy='9' r='3'/><circle cx='22' cy='23' r='3'/></g></svg>">
 <style>
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
-    margin: 0;
     background: #f5f6f8;
     color: #24292f;
     display: flex;
     flex-direction: column;
     height: 100vh;
   }
-  .container {
-    max-width: 1000px;
-    margin: 0 auto;
-    padding: 20px;
-  }
-  h1 { font-size: 20px; margin: 0 0 16px; }
-  .panels { display: flex; gap: 16px; align-items: stretch; }
   header { padding: 12px 20px; }
   header h1 { font-size: 18px; margin: 0; }
   .main { flex: 1; display: flex; gap: 12px; padding: 0 20px 20px; min-height: 0; }
   .panel {
-    flex: 1;
     background: #fff;
     border: 1px solid #d0d7de;
     border-radius: 8px;
-    padding: 12px;
     display: flex;
     flex-direction: column;
     min-width: 0;
   }
-  .panel h2 { font-size: 14px; margin: 0 0 8px; color: #57606a; }
   .left { width: 320px; flex: none; padding: 12px; }
   .right { flex: 1; overflow: hidden; position: relative; }
   .panel h2 { font-size: 13px; margin: 0 0 8px; color: #57606a; }
@@ -45,43 +34,26 @@
   textarea {
     flex: 1;
     width: 100%;
-    min-height: 420px;
-    resize: vertical;
     resize: none;
     font-family: "SFMono-Regular", Consolas, monospace;
-    font-size: 13px;
     font-size: 12px;
     border: 1px solid #d0d7de;
     border-radius: 6px;
     padding: 10px;
   }
-  .toolbar { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
   button {
-    background: #f6f8fa;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
-    padding: 6px 12px;
-    font-size: 13px;
-    cursor: pointer;
     background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 6px;
     padding: 5px 10px; font-size: 12px; cursor: pointer;
   }
   button:hover { background: #eef1f4; }
   button.primary { background: #1f6feb; color: #fff; border-color: #1f6feb; }
   button.primary:hover { background: #1a5fd0; }
-  #search {
-    flex: 1;
-    min-width: 120px;
-    padding: 6px 10px;
-    font-size: 13px;
-    border: 1px solid #d0d7de;
-    border-radius: 6px;
   input[type=text] {
     padding: 5px 9px; font-size: 12px; border: 1px solid #d0d7de; border-radius: 6px;
   }
-  .tree {
-    flex: 1;
-    overflow: auto;
+  select {
+    padding: 5px 8px; font-size: 12px; border: 1px solid #d0d7de; border-radius: 6px; background: #f6f8fa;
+  }
   /* 右侧图形工具条浮层 */
   .graph-toolbar {
     position: absolute; top: 10px; left: 10px; z-index: 10;
@@ -90,9 +62,9 @@
     border: 1px solid #d0d7de; border-radius: 8px;
   }
   #search { width: 150px; }
-  svg { width: 100%; height: 100%; display: block; cursor: grab; background:
+  #svg { width: 100%; height: 100%; display: block; cursor: grab; background:
         radial-gradient(#e3e6ea 1px, transparent 1px) 0 0 / 20px 20px; }
-  svg.panning { cursor: grabbing; }
+  #svg.panning { cursor: grabbing; }
   .edge { fill: none; stroke: #b9c0c8; stroke-width: 1.5px; }
   .node-fo { overflow: visible; }
   .box {
@@ -101,66 +73,17 @@
     border: 1px solid #cfd6dd; border-radius: 6px;
     background: #fff; font-size: 12px; line-height: 1;
     font-family: "SFMono-Regular", Consolas, monospace;
-    font-size: 13px;
-    line-height: 1.6;
-    min-height: 420px;
     white-space: nowrap; cursor: move; user-select: none;
     box-shadow: 0 1px 2px rgba(0,0,0,0.06);
   }
-  .node.root { padding-left: 0; }
-  /* 树形分支连接线 */
-  .children > .node {
-    position: relative;
-    padding-left: 18px;
-  }
-  /* 横向连接线（指向每个子节点） */
-  .children > .node::before {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 11px;
-    width: 13px;
-    border-top: 1px solid #c6ccd3;
-  }
-  /* 纵向连接线（连接同级兄弟节点） */
-  .children > .node::after {
-    content: "";
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    border-left: 1px solid #c6ccd3;
-  }
-  /* 最后一个子节点的纵线只画到连接点，形成 └ 形状 */
-  .children > .node:last-child::after {
-    bottom: auto;
-    height: 11px;
-  }
-  .row { display: flex; align-items: flex-start; white-space: pre; cursor: default; }
-  .row.collapsible { cursor: pointer; }
   .box.container { background: #eef4ff; border-color: #bcd0f5; }
   .box.match { background: #fff3b0; border-color: #e3c000; }
+  .box.current { background: #ffd6a5; border-color: #e8590c; outline: 2px solid #e8590c; }
+  #matchCount { font-size: 12px; color: #57606a; min-width: 42px; text-align: center; }
   .toggle {
-    display: inline-block;
-    width: 14px;
-    text-align: center;
-    color: #57606a;
-    user-select: none;
     display: inline-flex; width: 14px; height: 14px; align-items: center; justify-content: center;
     color: #57606a; cursor: pointer; border-radius: 3px; flex: none;
   }
-  .key { color: #953800; }
-  .colon { color: #57606a; }
-  .val-string { color: #0a3069; }
-  .val-number { color: #0550ae; }
-  .val-boolean { color: #8250df; }
-  .val-null { color: #6e7781; }
-  .bracket { color: #57606a; }
-  .count { color: #6e7781; font-style: italic; margin-left: 6px; }
-  .hidden { display: none; }
-  .highlight { background: #fff3b0; border-radius: 2px; }
-  .error { color: #cf222e; padding: 10px; }
-  .hint { color: #6e7781; font-size: 12px; margin-top: 6px; }
   .toggle:hover { background: #d5dbe2; }
   .toggle.leaf { visibility: hidden; }
   .k { color: #953800; }
@@ -172,43 +95,68 @@
   .lbl { overflow: hidden; text-overflow: ellipsis; max-width: 220px; }
   .hint { position: absolute; bottom: 10px; right: 14px; color: #8b949e; font-size: 11px; }
   .error { position: absolute; top: 60px; left: 12px; color: #cf222e; font-size: 12px; }
+  .box.selected { outline: 2px solid #1f6feb; outline-offset: 1px; }
+  /* 节点详情面板 */
+  .detail {
+    position: absolute; top: 0; right: 0; width: 340px; height: 100%;
+    background: #fff; border-left: 1px solid #d0d7de; z-index: 20;
+    display: flex; flex-direction: column; box-shadow: -2px 0 8px rgba(0,0,0,0.06);
+  }
+  .detail[hidden] { display: none; }
+  .detail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 12px; border-bottom: 1px solid #eaecef;
+  }
+  .detail-title { font-size: 13px; font-weight: 600; }
+  .detail-close {
+    border: none; background: transparent; font-size: 18px; line-height: 1;
+    cursor: pointer; color: #57606a; padding: 0 4px;
+  }
+  .detail-close:hover { color: #24292f; }
+  .detail-body { padding: 12px; overflow: auto; flex: 1; }
+  .detail-row { margin-bottom: 10px; font-size: 12px; display: flex; gap: 8px; align-items: baseline; }
+  .detail-label { color: #57606a; flex: none; width: 36px; }
+  .detail-row code {
+    font-family: "SFMono-Regular", Consolas, monospace; word-break: break-all; color: #953800;
+  }
+  .detail-actions { gap: 6px; }
+  #dContent {
+    background: #f6f8fa; border: 1px solid #eaecef; border-radius: 6px; padding: 10px;
+    font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px;
+    white-space: pre-wrap; word-break: break-word; overflow: auto;
+  }
 </style>
 </head>
 <body>
-<div class="container">
-  <h1>JSON 树状查看器</h1>
-  <div class="panels">
-    <div class="panel">
-      <h2>输入 JSON</h2>
-      <div class="toolbar">
-        <button class="primary" id="parseBtn">解析</button>
-        <button id="sampleBtn">示例</button>
-        <button id="clearBtn">清空</button>
-      </div>
-      <textarea id="input" placeholder='在此粘贴 JSON，例如 {"name":"张三","age":30}'></textarea>
-<header><h1>JSON 树状图</h1></header>
+<header><h1>
+  <svg width="22" height="22" viewBox="0 0 32 32" style="vertical-align:-5px;margin-right:6px">
+    <rect width="32" height="32" rx="6" fill="#1f6feb"/>
+    <g stroke="#fff" stroke-width="2" fill="#fff">
+      <line x1="9" y1="16" x2="22" y2="9"/><line x1="9" y1="16" x2="22" y2="23"/>
+      <circle cx="9" cy="16" r="3"/><circle cx="22" cy="9" r="3"/><circle cx="22" cy="23" r="3"/>
+    </g>
+  </svg>JSON / Protobuf 树状图
+</h1></header>
 <div class="main">
   <div class="panel left">
     <h2>输入 JSON</h2>
     <div class="toolbar">
+      <select id="format">
+        <option value="json">JSON</option>
+        <option value="proto">Protobuf</option>
+      </select>
       <button class="primary" id="parseBtn">解析</button>
       <button id="sampleBtn">示例</button>
       <button id="clearBtn">清空</button>
     </div>
-    <div class="panel">
-      <h2>树状视图</h2>
-      <div class="toolbar">
-        <input id="search" type="text" placeholder="搜索 key 或 value...">
-        <button id="expandBtn">全部展开</button>
-        <button id="collapseBtn">全部收起</button>
-      </div>
-      <div class="tree" id="tree"></div>
-      <div class="hint">点击带 ▶ 的行可展开/收起。搜索会高亮匹配并自动展开所在节点。</div>
     <textarea id="input" placeholder='粘贴 JSON…'></textarea>
   </div>
   <div class="panel right">
     <div class="graph-toolbar">
       <input id="search" type="text" placeholder="搜索 key / value…">
+      <button id="prevMatch" title="上一个 (←)">‹</button>
+      <span id="matchCount"></span>
+      <button id="nextMatch" title="下一个 (回车 / →)">›</button>
       <button id="expandBtn">全部展开</button>
       <button id="collapseBtn">全部收起</button>
       <button id="resetBtn">重置视图</button>
@@ -220,10 +168,25 @@
       </g>
     </svg>
     <div class="error" id="error"></div>
-    <div class="hint">拖空白处平移 · 滚轮缩放 · 拖节点移动 · 点 ▶/▼ 展开收起</div>
+    <div class="hint">拖空白处 / 二指滚动平移 · 二指捏合缩放 · 拖节点移动 · 点节点看详情 · 点 ▶/▼ 展开收起</div>
+    <div class="detail" id="detail" hidden>
+      <div class="detail-head">
+        <span class="detail-title">节点详情</span>
+        <button class="detail-close" id="detailClose" title="关闭">&times;</button>
+      </div>
+      <div class="detail-body">
+        <div class="detail-row"><span class="detail-label">路径</span><code id="dPath"></code></div>
+        <div class="detail-row"><span class="detail-label">类型</span><span id="dType"></span></div>
+        <div class="detail-row detail-actions">
+          <button id="copyVal">复制内容</button>
+          <button id="copyPath">复制路径</button>
+        </div>
+        <pre id="dContent"></pre>
+      </div>
+    </div>
   </div>
 </div>
- 
+
 <script>
 (function () {
   const SVGNS = "http://www.w3.org/2000/svg";
@@ -232,30 +195,177 @@
   const gEdges = document.getElementById('edges');
   const gNodes = document.getElementById('nodes');
   const input = document.getElementById('input');
-  const tree = document.getElementById('tree');
   const search = document.getElementById('search');
   const errorBox = document.getElementById('error');
+  const detail = document.getElementById('detail');
+  const dPath = document.getElementById('dPath');
+  const dType = document.getElementById('dType');
+  const dContent = document.getElementById('dContent');
+
   const W = 200, H = 26, X_GAP = 250, Y_GAP = 40;
+
   let rootNode = null;
   let visibleNodes = [];
   let edges = [];           // {p, c, el}
   let view = { tx: 40, ty: 40, s: 1 };
   let idc = 0;
+  let selectedId = null;
+  let detailNode = null;
+  let matches = [];         // 当前搜索命中的节点列表（树顺序）
+  let matchIdx = -1;
+
   const SAMPLE = {
-    name: "示例项目",
-    version: "1.0.0",
-    active: true,
     name: "示例项目", version: "1.0.0", active: true,
     tags: ["json", "tree", "viewer"],
     owner: { id: 1001, name: "张三", email: "zhangsan@example.com" },
     items: [
-3 unmodified lines
+      { id: 1, title: "第一项", done: false },
+      { id: 2, title: "第二项", done: true }
+    ],
     meta: null
   };
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"']/g, c => ({
-      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-    }[c]));
+
+  const PROTO_SAMPLE =
+`name: "示例项目"
+version: "1.0.0"
+active: true
+tags: "json"
+tags: "tree"
+tags: "viewer"
+owner {
+  id: 1001
+  name: "张三"
+  email: "zhangsan@example.com"
+}
+items {
+  id: 1
+  title: "第一项"
+  done: false
+}
+items {
+  id: 2
+  title: "第二项"
+  done: true
+}`;
+
+  // ---------- Protobuf 文本格式 → JS 对象 ----------
+  // 支持：标量(字符串/数字/布尔/枚举标识符)、嵌套消息 {} 或 <>、
+  //       重复字段(同名多次 → 数组)、列表语法 field: [a, b]、注释 #、扩展名 [a.b.c]。
+  function protoTextToObject(text) {
+    const s = text;
+    let i = 0;
+    const err = m => { throw new Error(m + '（位置 ' + i + '）'); };
+    const isWs = c => c === ' ' || c === '\t' || c === '\n' || c === '\r';
+    function skipWs() {
+      while (i < s.length) {
+        if (isWs(s[i])) { i++; continue; }
+        if (s[i] === '#') { while (i < s.length && s[i] !== '\n') i++; continue; }
+        break;
+      }
+    }
+    // 按字节累积再按 UTF-8 解码，这样 \344\270\255 这类多字节转义能还原成「中」等汉字
+    const _enc = new TextEncoder();
+    const _dec = new TextDecoder('utf-8');
+    function readString() {
+      const q = s[i++];
+      const bytes = [];
+      const pushStr = str => { for (const b of _enc.encode(str)) bytes.push(b); };
+      while (i < s.length && s[i] !== q) {
+        let c = s[i++];
+        if (c === '\\') {
+          const n = s[i++];
+          const map = { n: '\n', t: '\t', r: '\r', '"': '"', "'": "'", '\\': '\\', a: '\x07', b: '\b', f: '\f', v: '\v', '?': '?' };
+          if (n === 'x' || n === 'X') { let h = ''; while (/[0-9a-fA-F]/.test(s[i]) && h.length < 2) h += s[i++]; bytes.push(parseInt(h, 16) & 0xff); }
+          else if (/[0-7]/.test(n)) { let o = n; while (/[0-7]/.test(s[i]) && o.length < 3) o += s[i++]; bytes.push(parseInt(o, 8) & 0xff); }
+          else if (n in map) pushStr(map[n]);
+          else pushStr(n);
+        } else pushStr(c);
+      }
+      if (s[i] !== q) err('字符串未闭合');
+      i++;
+      return _dec.decode(new Uint8Array(bytes));
+    }
+    function readToken() {
+      const start = i;
+      while (i < s.length && /[^\s{}<>\[\]:;,#"']/.test(s[i])) i++;
+      return s.slice(start, i);
+    }
+    function parseScalar() {
+      skipWs();
+      const c = s[i];
+      if (c === '"' || c === "'") {
+        let str = readString();
+        while (true) { const save = i; skipWs(); if (s[i] === '"' || s[i] === "'") str += readString(); else { i = save; break; } }
+        return str;
+      }
+      const tok = readToken();
+      if (tok === '') err('期望一个值');
+      if (tok === 'true') return true;
+      if (tok === 'false') return false;
+      if (/inf/i.test(tok)) return tok[0] === '-' ? -Infinity : Infinity;
+      if (/nan/i.test(tok)) return NaN;
+      if (/^[+-]?0x[0-9a-fA-F]+$/.test(tok)) return parseInt(tok, 16);
+      if (/^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?$/.test(tok)) return Number(tok);
+      return tok; // 枚举标识符
+    }
+    function addField(obj, key, val) {
+      if (key in obj) { if (!Array.isArray(obj[key])) obj[key] = [obj[key]]; obj[key].push(val); }
+      else obj[key] = val;
+    }
+    function parseMessage(closer) {
+      const obj = {};
+      while (true) {
+        skipWs();
+        if (i >= s.length) { if (closer) err('缺少 ' + closer); break; }
+        if (closer && s[i] === closer) { i++; break; }
+        // 字段名（含扩展名 [a.b.c]）
+        let key;
+        if (s[i] === '[') {
+          i++; const start = i;
+          while (i < s.length && s[i] !== ']') i++;
+          key = s.slice(start, i).trim(); i++;
+        } else {
+          key = readToken();
+          if (!key) err('期望字段名');
+        }
+        skipWs();
+        let ch = s[i];
+        if (ch === ':') {
+          i++; skipWs(); ch = s[i];
+          if (ch === '[') {
+            i++; const arr = [];
+            while (true) {
+              skipWs();
+              if (s[i] === ']') { i++; break; }
+              if (s[i] === '{' || s[i] === '<') { const cl = s[i] === '{' ? '}' : '>'; i++; arr.push(parseMessage(cl)); }
+              else arr.push(parseScalar());
+              skipWs();
+              if (s[i] === ',') { i++; continue; }
+              if (s[i] === ']') { i++; break; }
+              err("列表中期望 ',' 或 ']'");
+            }
+            if (Array.isArray(obj[key])) obj[key] = obj[key].concat(arr); else obj[key] = arr;
+          } else if (ch === '{' || ch === '<') {
+            const cl = ch === '{' ? '}' : '>'; i++; addField(obj, key, parseMessage(cl));
+          } else {
+            addField(obj, key, parseScalar());
+          }
+        } else if (ch === '{' || ch === '<') {
+          const cl = ch === '{' ? '}' : '>'; i++; addField(obj, key, parseMessage(cl));
+        } else {
+          err("字段 '" + key + "' 后期望 ':' 或 '{'");
+        }
+        skipWs();
+        if (s[i] === ';' || s[i] === ',') i++;
+      }
+      return obj;
+    }
+    const result = parseMessage(null);
+    skipWs();
+    if (i < s.length) err('存在多余内容');
+    return result;
+  }
+
   // ---------- 数据模型 ----------
   function build(key, value, depth, parent) {
     const type = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
@@ -266,10 +376,7 @@
     return node;
   }
   function isContainer(n) { return n.type === 'object' || n.type === 'array'; }
-  // 构建树 DOM。value 可以是任意 JSON 值。
-  function buildNode(key, value, isRoot) {
-    const node = document.createElement('div');
-    node.className = 'node' + (isRoot ? ' root' : '');
+
   // ---------- 布局（根在左，向右展开）----------
   function layout() {
     visibleNodes = [];
@@ -289,8 +396,7 @@
     }
     if (rootNode) assign(rootNode, 0);
   }
-    const type = Array.isArray(value) ? 'array' : (value === null ? 'null' : typeof value);
-    const isContainer = type === 'object' || type === 'array';
+
   // ---------- 标签 ----------
   function labelHTML(node) {
     const key = node.key === null ? 'root' : node.key;
@@ -314,47 +420,77 @@
   function esc(s) {
     return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-    const row = document.createElement('div');
-    row.className = 'row';
+
+  // ---------- 节点详情 ----------
+  function pathOf(node) {
+    const chain = []; let n = node;
+    while (n) { chain.unshift(n); n = n.parent; }
+    let out = '';
+    chain.forEach(n => {
+      if (n.key === null) out = 'root';
+      else if (n.parent && n.parent.type === 'array') out += '[' + n.key + ']';
+      else out += (out ? '.' : '') + n.key;
+    });
+    return out;
+  }
+  function typeLabel(node) {
+    if (node.type === 'object') return `object（${node.children.length} 字段）`;
+    if (node.type === 'array') return `array（${node.children.length} 项）`;
+    return node.type;
+  }
+  function contentOf(node) {
+    if (isContainer(node)) return JSON.stringify(node.value, null, 2);
+    if (node.type === 'string') return node.value;
+    return String(node.value);
+  }
+  function showDetail(node) {
+    detailNode = node;
+    selectedId = node.id;
+    dPath.textContent = pathOf(node);
+    dType.textContent = typeLabel(node);
+    dContent.textContent = contentOf(node);
+    detail.hidden = false;
+    applySelection();
+  }
+  function closeDetail() {
+    detail.hidden = true;
+    detailNode = null;
+    selectedId = null;
+    applySelection();
+  }
+  function applySelection() {
+    gNodes.querySelectorAll('.box.selected').forEach(b => b.classList.remove('selected'));
+    if (selectedId === null) return;
+    const n = visibleNodes.find(v => v.id === selectedId);
+    if (n && n._box) n._box.classList.add('selected');
+  }
+
   // ---------- 渲染 ----------
   function render() {
     layout();
     gNodes.innerHTML = '';
     gEdges.innerHTML = '';
     const term = search.value.trim().toLowerCase();
-    const toggle = document.createElement('span');
-    toggle.className = 'toggle';
+
     edges.forEach(e => {
       const path = document.createElementNS(SVGNS, 'path');
       path.setAttribute('class', 'edge');
       e.el = path;
       gEdges.appendChild(path);
     });
-    row.appendChild(toggle);
+
     visibleNodes.forEach(node => {
       const g = document.createElementNS(SVGNS, 'g');
       const fo = document.createElementNS(SVGNS, 'foreignObject');
       fo.setAttribute('class', 'node-fo');
       fo.setAttribute('width', W);
       fo.setAttribute('height', H);
-    // key 部分
-    if (key !== null) {
-      const keySpan = document.createElement('span');
-      keySpan.className = 'key';
-      keySpan.textContent = '"' + key + '"';
-      row.appendChild(keySpan);
-      const colon = document.createElement('span');
-      colon.className = 'colon';
-      colon.textContent = ': ';
-      row.appendChild(colon);
-    }
+
       const box = document.createElement('div');
       box.className = 'box' + (isContainer(node) ? ' container' : '');
+      if (node.id === selectedId) box.classList.add('selected');
       if (term && labelText(node).toLowerCase().includes(term)) box.classList.add('match');
-    if (isContainer) {
-      const entries = type === 'array'
-        ? value.map((v, i) => [i, v])
-        : Object.keys(value).map(k => [k, value[k]]);
+
       const toggle = document.createElement('span');
       toggle.className = 'toggle' + (isContainer(node) && node.children.length ? '' : ' leaf');
       toggle.textContent = node.collapsed ? '▶' : '▼';
@@ -364,35 +500,27 @@
         node.collapsed = !node.collapsed;
         render();
       });
-      row.classList.add('collapsible');
-      toggle.textContent = '▶';
+
       const lbl = document.createElement('span');
       lbl.className = 'lbl';
       lbl.innerHTML = labelHTML(node);
-      const open = document.createElement('span');
-      open.className = 'bracket';
-      open.textContent = type === 'array' ? '[' : '{';
-      row.appendChild(open);
+
       box.appendChild(toggle);
       box.appendChild(lbl);
       fo.appendChild(box);
       g.appendChild(fo);
       gNodes.appendChild(g);
-      const count = document.createElement('span');
-      count.className = 'count';
-      count.textContent = entries.length + (type === 'array' ? ' 项' : ' 字段');
-      row.appendChild(count);
+
       node._g = g;
       node._box = box;
       // 拖动节点
       box.addEventListener('mousedown', ev => startNodeDrag(ev, node));
     });
-      const children = document.createElement('div');
-      children.className = 'children';
+
     applyPositions();
     applyView();
   }
-      entries.forEach(([k, v]) => children.appendChild(buildNode(k, v, false)));
+
   function applyPositions() {
     visibleNodes.forEach(n => n._g.setAttribute('transform', `translate(${n.x},${n.y})`));
     edges.forEach(e => {
@@ -402,28 +530,11 @@
       e.el.setAttribute('d', `M${x1},${y1} C${mx},${y1} ${mx},${y2} ${x2},${y2}`);
     });
   }
-      const closeRow = document.createElement('div');
-      closeRow.className = 'row';
-      const pad = document.createElement('span');
-      pad.className = 'toggle';
-      closeRow.appendChild(pad);
-      const close = document.createElement('span');
-      close.className = 'bracket';
-      close.textContent = type === 'array' ? ']' : '}';
-      closeRow.appendChild(close);
+
   function applyView() {
     viewport.setAttribute('transform', `translate(${view.tx},${view.ty}) scale(${view.s})`);
   }
-      // 收起/展开逻辑
-      function setCollapsed(collapsed) {
-        node._collapsed = collapsed;
-        toggle.textContent = collapsed ? '▶' : '▼';
-        children.classList.toggle('hidden', collapsed);
-        closeRow.classList.toggle('hidden', collapsed);
-        count.classList.toggle('hidden', !collapsed);
-      }
-      node._setCollapsed = setCollapsed;
-      setCollapsed(true); // 默认收起
+
   // ---------- 节点拖动（移动整棵子树）----------
   let dragging = null;
   function subtree(node) {
@@ -434,7 +545,7 @@
   function startNodeDrag(ev, node) {
     ev.preventDefault();
     ev.stopPropagation();
-    dragging = { node, nodes: subtree(node).filter(n => visibleNodes.includes(n)), sx: ev.clientX, sy: ev.clientY };
+    dragging = { node, nodes: subtree(node).filter(n => visibleNodes.includes(n)), sx: ev.clientX, sy: ev.clientY, ox: ev.clientX, oy: ev.clientY, moved: false };
   }
   window.addEventListener('mousemove', ev => {
     if (dragging) {
@@ -442,6 +553,7 @@
       const dy = (ev.clientY - dragging.sy) / view.s;
       dragging.sx = ev.clientX; dragging.sy = ev.clientY;
       dragging.nodes.forEach(n => { n.x += dx; n.y += dy; });
+      if (Math.hypot(ev.clientX - dragging.ox, ev.clientY - dragging.oy) > 4) dragging.moved = true;
       applyPositions();
     } else if (panning) {
       view.tx += ev.clientX - panning.sx;
@@ -451,10 +563,13 @@
     }
   });
   window.addEventListener('mouseup', () => {
-    dragging = null;
+    if (dragging) {
+      if (!dragging.moved) showDetail(dragging.node); // 未拖动视为点击 → 展示详情
+      dragging = null;
+    }
     if (panning) { panning = null; svg.classList.remove('panning'); }
   });
-      row.addEventListener('click', () => setCollapsed(!node._collapsed));
+
   // ---------- 画布平移 ----------
   let panning = null;
   svg.addEventListener('mousedown', ev => {
@@ -462,42 +577,30 @@
     panning = { sx: ev.clientX, sy: ev.clientY };
     svg.classList.add('panning');
   });
-      node.appendChild(row);
-      node.appendChild(children);
-      node.appendChild(closeRow);
-    } else {
-      toggle.textContent = ' ';
-      const valSpan = document.createElement('span');
-      if (type === 'string') {
-        valSpan.className = 'val-string';
-        valSpan.textContent = '"' + value + '"';
-      } else if (type === 'number') {
-        valSpan.className = 'val-number';
-        valSpan.textContent = value;
-      } else if (type === 'boolean') {
-        valSpan.className = 'val-boolean';
-        valSpan.textContent = value;
-      } else {
-        valSpan.className = 'val-null';
-        valSpan.textContent = 'null';
-      }
-      row.appendChild(valSpan);
-      node.appendChild(row);
-    }
-  // ---------- 缩放 ----------
+
+  // ---------- 缩放 / 平移 ----------
+  // 触控板二指捏合会触发 ctrlKey=true 的 wheel 事件 → 缩放；
+  // 普通二指滚动（无 ctrlKey）→ 平移。
+  const ZOOM_SENSITIVITY = 0.004; // 数值越小越不灵敏
   svg.addEventListener('wheel', ev => {
     ev.preventDefault();
-    const rect = svg.getBoundingClientRect();
-    const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
-    const factor = ev.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const ns = Math.min(3, Math.max(0.2, view.s * factor));
-    // 以鼠标为中心缩放
-    view.tx = mx - (mx - view.tx) * (ns / view.s);
-    view.ty = my - (my - view.ty) * (ns / view.s);
-    view.s = ns;
+    if (ev.ctrlKey) {
+      const rect = svg.getBoundingClientRect();
+      const mx = ev.clientX - rect.left, my = ev.clientY - rect.top;
+      const factor = Math.exp(-ev.deltaY * ZOOM_SENSITIVITY);
+      const ns = Math.min(3, Math.max(0.2, view.s * factor));
+      // 以指尖位置为中心缩放
+      view.tx = mx - (mx - view.tx) * (ns / view.s);
+      view.ty = my - (my - view.ty) * (ns / view.s);
+      view.s = ns;
+    } else {
+      // 二指滚动平移
+      view.tx -= ev.deltaX;
+      view.ty -= ev.deltaY;
+    }
     applyView();
   }, { passive: false });
-    return node;
+
   // ---------- 重置 / 自适应 ----------
   function resetView() {
     if (!rootNode) return;
@@ -506,109 +609,121 @@
     view.ty = svg.clientHeight / 2 - (rootNode.y + H / 2);
     applyView();
   }
-  function render() {
-    const raw = input.value.trim();
-    tree.innerHTML = '';
-    if (!raw) return;
-    let data;
-    try {
-      data = JSON.parse(raw);
-    } catch (e) {
-      const err = document.createElement('div');
-      err.className = 'error';
-      err.textContent = 'JSON 解析错误: ' + e.message;
-      tree.appendChild(err);
-      return;
-    }
-    tree.appendChild(buildNode(null, data, true));
-    // 根节点默认展开
-    const root = tree.firstChild;
-    if (root && root._setCollapsed) root._setCollapsed(false);
-    applySearch();
-  }
+
   function setAllCollapsed(collapsed) {
-    tree.querySelectorAll('.node').forEach(n => {
-      if (n._setCollapsed) n._setCollapsed(collapsed);
-    });
     (function walk(n) { if (isContainer(n) && n.children.length) n.collapsed = collapsed; n.children.forEach(walk); })(rootNode);
     if (rootNode) rootNode.collapsed = false; // 根始终展开
     render();
     resetView();
   }
-  // 清除高亮，恢复原始文本
-  function clearHighlights() {
-    tree.querySelectorAll('.highlight').forEach(el => {
-      el.replaceWith(document.createTextNode(el.textContent));
-    });
-    tree.querySelectorAll('.key, .val-string, .val-number, .val-boolean, .val-null')
-      .forEach(el => el.normalize());
-  }
-  function applySearch() {
-    clearHighlights();
-  // ---------- 搜索：展开匹配节点的所有祖先 ----------
+
+  // ---------- 搜索：收集命中、展开祖先、逐个切换 ----------
   function doSearch() {
     const term = search.value.trim().toLowerCase();
-    if (!term) return;
-    const targets = tree.querySelectorAll('.key, .val-string, .val-number, .val-boolean, .val-null');
-    targets.forEach(el => {
-      const text = el.textContent;
-      if (text.toLowerCase().includes(term)) {
-        // 高亮匹配片段
-        const idx = text.toLowerCase().indexOf(term);
-        el.innerHTML = escapeHtml(text.slice(0, idx))
-          + '<span class="highlight">' + escapeHtml(text.slice(idx, idx + term.length)) + '</span>'
-          + escapeHtml(text.slice(idx + term.length));
-        // 展开所有祖先容器
-        let p = el.closest('.node');
-        while (p && p !== tree) {
-          if (p._setCollapsed) p._setCollapsed(false);
-          p = p.parentElement.closest('.node');
+    matches = [];
+    matchIdx = -1;
     if (term && rootNode) {
       (function walk(n) {
         if (labelText(n).toLowerCase().includes(term)) {
+          matches.push(n);
           let p = n.parent;
           while (p) { p.collapsed = false; p = p.parent; }
         }
-      }
-    });
         n.children.forEach(walk);
       })(rootNode);
     }
     render();
+    if (matches.length) focusMatch(0); else updateCounter();
   }
-  document.getElementById('parseBtn').addEventListener('click', render);
+
+  function focusMatch(i) {
+    if (!matches.length) { updateCounter(); return; }
+    matchIdx = ((i % matches.length) + matches.length) % matches.length;
+    const node = matches[matchIdx];
+    let p = node.parent;
+    while (p) { p.collapsed = false; p = p.parent; } // 确保可见
+    render();
+    if (node._box) node._box.classList.add('current');
+    // 将当前命中节点居中
+    view.tx = svg.clientWidth / 2 - (node.x + W / 2) * view.s;
+    view.ty = svg.clientHeight / 2 - (node.y + H / 2) * view.s;
+    applyView();
+    updateCounter();
+  }
+
+  function updateCounter() {
+    const el = document.getElementById('matchCount');
+    if (!el) return;
+    const term = search.value.trim();
+    if (!term) { el.textContent = ''; return; }
+    el.textContent = matches.length ? (matchIdx + 1) + ' / ' + matches.length : '0 / 0';
+  }
+
   // ---------- 解析入口 ----------
   function parse() {
     errorBox.textContent = '';
     const raw = input.value.trim();
     if (!raw) { rootNode = null; render(); return; }
+    const fmt = document.getElementById('format').value;
     let data;
-    try { data = JSON.parse(raw); }
-    catch (e) { errorBox.textContent = 'JSON 解析错误: ' + e.message; rootNode = null; render(); return; }
+    try {
+      data = fmt === 'proto' ? protoTextToObject(raw) : JSON.parse(raw);
+    } catch (e) {
+      errorBox.textContent = (fmt === 'proto' ? 'Protobuf' : 'JSON') + ' 解析错误: ' + e.message;
+      rootNode = null; render(); return;
+    }
     idc = 0;
+    selectedId = null; detailNode = null; detail.hidden = true;
+    matches = []; matchIdx = -1;
     rootNode = build(null, data, 0, null);
     render();
     resetView();
+    updateCounter();
   }
+
   document.getElementById('parseBtn').addEventListener('click', parse);
   document.getElementById('clearBtn').addEventListener('click', () => {
-    input.value = ''; tree.innerHTML = ''; search.value = '';
-    input.value = ''; search.value = ''; rootNode = null; render();
+    input.value = ''; search.value = ''; rootNode = null; matches = []; matchIdx = -1;
+    closeDetail(); render(); updateCounter();
   });
   document.getElementById('sampleBtn').addEventListener('click', () => {
-    input.value = JSON.stringify(SAMPLE, null, 2); render();
-    input.value = JSON.stringify(SAMPLE, null, 2); parse();
+    const fmt = document.getElementById('format').value;
+    input.value = fmt === 'proto' ? PROTO_SAMPLE : JSON.stringify(SAMPLE, null, 2);
+    parse();
+  });
+  document.getElementById('format').addEventListener('change', () => {
+    const fmt = document.getElementById('format').value;
+    input.placeholder = fmt === 'proto' ? '粘贴 Protobuf 文本格式…' : '粘贴 JSON…';
   });
   document.getElementById('expandBtn').addEventListener('click', () => setAllCollapsed(false));
   document.getElementById('collapseBtn').addEventListener('click', () => setAllCollapsed(true));
-  search.addEventListener('input', applySearch);
   document.getElementById('resetBtn').addEventListener('click', resetView);
   search.addEventListener('input', doSearch);
-  // 初始加载示例
+  document.getElementById('prevMatch').addEventListener('click', () => focusMatch(matchIdx - 1));
+  document.getElementById('nextMatch').addEventListener('click', () => focusMatch(matchIdx + 1));
+
+  // 详情面板：关闭 / 复制
+  document.getElementById('detailClose').addEventListener('click', closeDetail);
+  document.getElementById('copyVal').addEventListener('click', () => {
+    if (detailNode) navigator.clipboard.writeText(contentOf(detailNode));
+  });
+  document.getElementById('copyPath').addEventListener('click', () => {
+    if (detailNode) navigator.clipboard.writeText(pathOf(detailNode));
+  });
+  window.addEventListener('keydown', ev => {
+    if (ev.key === 'Escape') { closeDetail(); return; }
+    // 搜索命中后：回车 / → 下一个，← 上一个（在 JSON 输入框内不拦截）
+    if (!matches.length || document.activeElement === input) return;
+    if (ev.key === 'Enter' || ev.key === 'ArrowRight') {
+      ev.preventDefault(); focusMatch(matchIdx + 1);
+    } else if (ev.key === 'ArrowLeft') {
+      ev.preventDefault(); focusMatch(matchIdx - 1);
+    }
+  });
+
   input.value = JSON.stringify(SAMPLE, null, 2);
-  render();
   parse();
 })();
 </script>
 </body>
-1 unmodified lines
+</html>
